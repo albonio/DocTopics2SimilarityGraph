@@ -1,4 +1,0 @@
-/home/apadilla/jre1.8.0_40/bin/java -Xmx100524m -Xms10512m -cp . DocTopics2SimilarityGraph ~/doctopics/DocTopics2SimilarityGraph/output ~/doctopics/DocTopics2SimilarityGraph/input PlanEstatalENE.doc_topics.bin PlanEstatalENE-metadata-2004-2016.csv 1 1
-
-
-/home/apadilla/jre1.8.0_40/bin/java -Xmx100524m -Xms10512m -cp . DocTopics2SimilarityGraph ~/doctopics/DocTopics2SimilarityGraph/output ~/doctopics/DocTopics2SimilarityGraph/input 0.15 wiki_pruned.doc_topics.bin nodeMetadata.csv 1 1
