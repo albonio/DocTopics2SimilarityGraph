@@ -1,5 +1,5 @@
 # DocTopics2SimilarityGraph
-Semantic graphs building from LDA doc topic file using Jenssen-Shannon distance.<br/>
+Semantic graphs building from LDA doc topic file using Jensen-Shannon distance.<br/>
 
 CLI params<br/>
 -o output dir<br/>
