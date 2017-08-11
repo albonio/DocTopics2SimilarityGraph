@@ -12,12 +12,19 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
 import java.util.stream.IntStream;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
  
  
  
  
 public class DocTopics2SimilarityGraph {
-	static String outputDir = "output2";
+	static String outputDir = "output";
     static String inputDir  = "input";
     
     private static DecimalFormat df4;
@@ -26,10 +33,8 @@ public class DocTopics2SimilarityGraph {
     private static String[] docNames;
     private static int numdocs = 0;
     private static short numtopics = 0;
-    /////private static float epsylon = 0.15f;//0.07f;//cordis
     private static float epsylon = 0.15f;
-    //0.20f;// setsi 10K 0.20f;
-    //0.14f; //0.035f;//0.070f;// TODO param
+
     
     private static float epsylon_2_2sqrt = (float) (2*Math.sqrt(2*epsylon));
     private static float epsylon_2_2sqrt_short = (float) (epsylon_2_2sqrt*10000);  
@@ -37,10 +42,9 @@ public class DocTopics2SimilarityGraph {
     private static float epsylon20000f = epsylon*20000f;
     
     
-    private static float epsylonEng = 0.08f; //0.035f;//0.070f;// TODO param
+    private static float epsylonEng = 0.08f; //0.035f;//0.070f;
     
     private static int[] englishTopics = {};
-//TODO desigualdad triangualar
  
     private static String fileName  = "PlanEstatalENE.doc_topics.bin";
     private static String fileNameNodeMetadata  = "PlanEstatalENE-metadata-2004-2016.csv";
@@ -48,63 +52,84 @@ public class DocTopics2SimilarityGraph {
     private static boolean bin = true;
 
     
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ParseException {
         DecimalFormatSymbols simbolos = new DecimalFormatSymbols();
         simbolos.setDecimalSeparator('.');    
         df4 = new DecimalFormat("#.####", simbolos);
-
-//        deleteFolder(new File(outputDir), false);
-//        File outputDirFile = new File(outputDir);
-//        outputDirFile.mkdir();
                  
-        if (args.length == 7) {
-        	outputDir = args[0];    
-        	inputDir  = args[1];	
-
-        	try{
-        		epsylon = Float.parseFloat(args[2]);
-        	} catch (NumberFormatException e) {
-                System.err.println("Argument " + args[2] + " must be an float.");
-                System.exit(1);
-            }
-        	fileName = args[3];    
-        	fileNameNodeMetadata  = args[4];	
-        	
-        	
-        	
-        	int saveNodeFile_int = 0;
-            try {
-            	saveNodeFile_int = Integer.parseInt(args[5]);
-            } catch (NumberFormatException e) {
-                System.err.println("Argument " + args[5] + " must be an integer.");
-                System.exit(1);
-            }
-            if(saveNodeFile_int > 0){
-            	saveNodeFile = true;
-            } else {
-            	saveNodeFile = false;
-            }
-            
-        	int bin_int = 0;
-            try {
-            	bin_int = Integer.parseInt(args[6]);
-            } catch (NumberFormatException e) {
-                System.err.println("Argument " + args[6] + " must be an integer.");
-                System.exit(1);
-            }
-            if(bin_int > 0){
-            	bin = true;
-            } else {
-            	bin = false;
-            }
+	
+    	// parse CLI options
+        Options options = createCLIoptions();
+        
+        CommandLineParser parser = new DefaultParser();
+        CommandLine cmd = parser.parse( options, args);
+     		
+        // outputDir, get -o option value
+        String outputDircli = cmd.getOptionValue("o");
+        if(outputDircli == null) {
+        	System.out.println("No output dir specified. Default: " + outputDir);
         } else {
-        	usage();
-        	System.exit(1);
+        	System.out.println("Output dir specified: " + outputDircli);
+        	outputDir = outputDircli;
         }
         
+        // inputDir, get -i option value
+        String inputDircli = cmd.getOptionValue("i");
+        if(inputDircli == null) {
+        	 System.out.println("No input dir specified. Default: " + inputDir);
+        } else {
+        	System.out.println("Input dir specified: " + inputDircli);
+        	inputDir = inputDircli;
+        }
+        
+        // doc_topics file, get -d option value
+        String docTopicscli = cmd.getOptionValue("d");
+        if(docTopicscli == null) {
+        	 System.out.println("No DocTopics file specified.");
+        	 usage(options);
+        	 System.exit(1);
+        } else {
+        	System.out.println("DocTopics file specified: " + docTopicscli);
+        	fileName = docTopicscli;
+        }
+        
+        // node metadata file, get -m option value
+        String fileNameNodeMetadatacli = cmd.getOptionValue("m");
+        if(fileNameNodeMetadatacli == null) {
+        	 System.out.println("No node metadata file specified.");
+        } else {
+        	System.out.println("Node metadata file specified: " + fileNameNodeMetadatacli);
+        	fileNameNodeMetadata = fileNameNodeMetadatacli;
+        }
+        
+        // save node metadata file, get -ns option value
+        String saveNodeFile_cli = cmd.getOptionValue("ns");
+        if(saveNodeFile_cli != null) {
+        	System.out.println("Specified not to save node metadata file.");
+        	saveNodeFile = false;
+        } 
+        
+        // binary doc topic file format, get -nb option value
+        String bin_cli = cmd.getOptionValue("nb");
+        if(bin_cli != null) {
+        	System.out.println("No binary doc topic file format specified.");
+        	bin = false;
+        }         
+        
+        // epsylon, get -e option value
+        String epsyloncli = cmd.getOptionValue("e");
+        if(epsyloncli == null) {
+        	 System.out.println("No epsylon specified, min distance. Default: " + epsylon);
+
+        } else {
+        	System.out.println("Epsylon, min distance, specified: " + epsylon);
+        	epsylon = Float.parseFloat(epsyloncli);
+        }  
+
+        
+        // read doc topic file
         try {
-        	if(fileName.endsWith(".bin")){
-        		bin = true;
+        	if(bin){
         		inspectBinTopicFile(fileName);
         	} else {
         		inspectTopicFile(fileName);
@@ -112,19 +137,19 @@ public class DocTopics2SimilarityGraph {
 
             if(numdocs == 0){
             	System.out.println("Error loading doc-topics: incorrect numdocs...");
-            	return;            	
+            	System.exit(1);            	
             }
             
             if(numtopics == 0){
             	System.out.println("Error loading doc-topics: incorrect numtopics...");
-            	return;            	
+            	System.exit(1);            	
             }
             
 
             docNames = new String[numdocs];  
             connectedNode = new boolean[numdocs];
             
-            System.out.println("Loading doc-topics, numdocs: " + numdocs + ", numtopics: " + numtopics);
+            System.out.println("\nLoading doc-topics, numdocs: " + numdocs + ", numtopics: " + numtopics);
             
             if(bin){
             	short[][] docTopicValues = new short[numdocs][numtopics];
@@ -132,27 +157,15 @@ public class DocTopics2SimilarityGraph {
                 	System.out.println("Error loading bin doc-topics...");
                 	return;
                 }  
-//                long t1 = System.currentTimeMillis();
-//                saveSimilarityMatrixBinParallel_tuning1(docTopicValues);  
-                long t2 = System.currentTimeMillis();
                 saveSimilarityMatrixBinParallel(docTopicValues);      
-                long t3 = System.currentTimeMillis();
-//                saveSimilarityMatrixBin(docTopicValues);
-//                long t4 = System.currentTimeMillis();
-                
-//                System.out.println("saveSimilarityMatrixBinParallel_tuning1: " + (t2-t1));
-                System.out.println("saveSimilarityMatrixBinParallel:         " + (t3-t2));
-//                System.out.println("saveSimilarityMatrixBin:                 " + (t4-t3));
-                
             } else {
             	double[][] docTopicValues = new double[numdocs][numtopics];
                 if(loadTopics(fileName, numdocs, docTopicValues) == 0){
                 	System.out.println("Error loading doc-topics...");
                 	return;
                 }             
-                saveSimilarityMatrix(docTopicValues);
+                saveSimilarityMatrix(docTopicValues);//TODO parallel, like saveSimilarityMatrixBinParallel
             } 
-            
             
             // node metadata 
             if(saveNodeFile){
@@ -164,16 +177,46 @@ public class DocTopics2SimilarityGraph {
     }
 
 
+	private static Options createCLIoptions() {
+		//  samaple params
+		//		-o output
+		//		-i input
+		//		-d cordis-projects_100.doc_topics.bin
+		//		-m cordis-projects-metadata.csv
+		//		//-ns
+		//		//-nb
+		//		-e 0.15		
+		
+		// create Options object
+		Options options = new Options();
 
-	private static void usage() {
-		System.out.println("arg0: outputDir");
-		System.out.println("arg1: inputDir");
-		System.out.println("arg2: epsylon");
-		System.out.println("arg3: fileName");
-		System.out.println("arg4: fileNameNodeMetadata");
-		System.out.println("arg5: saveNodeFile [0|1]");
-		System.out.println("arg6: bin [0|1]");
+		// add options
+		options.addOption("o", true, "output directory");
+		options.addOption("i", true, "input directory");
+		options.addOption("d", true, "doctopics bin file");
+		options.addOption("m", true, "node metadata file");
+		options.addOption("ns", false, "dont save node metadata file");
+		options.addOption("nb", false, "not binary doc topic file format");
+		options.addOption("e", true, "epsylon, min distance to draw edge between nodes");
+
+		return options;
 	}
+
+	private static void usage(Options options) {
+		// automatically generate the help statement
+		HelpFormatter formatter = new HelpFormatter();
+		formatter.printHelp( "DocTopics2SimilarityGraph", options );
+	}
+
+//	private static void usage() {
+//		System.out.println("arg0: outputDir");
+//		System.out.println("arg1: inputDir");
+//		System.out.println("arg2: epsylon");
+//		System.out.println("arg3: fileName");
+//		System.out.println("arg4: fileNameNodeMetadata");
+//		System.out.println("arg5: saveNodeFile [0|1]");
+//		System.out.println("arg6: bin [0|1]");
+//	}
 
 
 
@@ -191,7 +234,6 @@ public class DocTopics2SimilarityGraph {
 
 	    	int cnt = 0;
 	    	int cnt_out = 0;
-	    	int cnt_isciii = 0;
 	    	String DEFAULT_SEPARATOR = ",";	    	
 	    	
             while ((line = stdInReader.readLine()) != null) {
@@ -202,13 +244,6 @@ public class DocTopics2SimilarityGraph {
 	                
                 	int iddoc = getDocId(docName);
                 	if(iddoc >= 0 && connectedNode[iddoc]){
-                		//String isciii = DEFAULT_SEPARATOR + " 0";
-                		
-//                		if(line.toUpperCase().contains("ISCIII")){
-//                			isciii = DEFAULT_SEPARATOR + " 1";
-//                			cnt_isciii++;
-//                		}
-                		//line = iddoc + DEFAULT_SEPARATOR + line + isciii + "\n";
                 		line = iddoc + DEFAULT_SEPARATOR + line + "\n";
 						stdWriter.write(line);
 						cnt_out++;
@@ -218,15 +253,13 @@ public class DocTopics2SimilarityGraph {
 	            	if(line.split(DEFAULT_SEPARATOR).length == 1){
 	            		DEFAULT_SEPARATOR = ";";
 	            	}
-	            	
-                	//line = "\"Id\"" + DEFAULT_SEPARATOR + line + DEFAULT_SEPARATOR + "ISCIII\n";
 	            	line = "\"Id\"" + DEFAULT_SEPARATOR + line + "\n";
 					stdWriter.write(line);
                 }
 	            cnt++;
             }
             
-            System.out.println("metadata nodes read:" + cnt + " active nodes:" + cnt_out + " isciii: " + cnt_isciii);
+            System.out.println("Metadata nodes read: " + cnt + ", active nodes: " + cnt_out);
    			
 			stdWriter.flush();
 			outputStream.close();	
@@ -259,16 +292,12 @@ public class DocTopics2SimilarityGraph {
 			
 			stdWriter.write("\"Source\",\"Target\",\"Weight\",\"Type\"\n");
 			
-//			double distanceNormalizedMax = 0;
-//			double distanceNormalizedMin = 10;
 			long time_ini = System.currentTimeMillis();
 			
 			for(int i = 0; i < numdocs; i++){
 				for(int j = i+1; j < numdocs; j++){
 					// TODO param select measure
 					
-//					double[] vector1 = cleanEnglishTopics(docTopicValues[i]);
-//					double[] vector2 = cleanEnglishTopics(docTopicValues[j]);
 					boolean engDoc = false;
 					
 					for(int ii=0; ii< englishTopics.length;ii++){
@@ -282,7 +311,6 @@ public class DocTopics2SimilarityGraph {
 					}
 					
 					// distancia euclidea
-					////double distance = MetricsUtils.distL2(docTopicValues[i], docTopicValues[j]);
 					//double distance = MetricsUtils.distL2(vector1, vector2);
 					
 					// distania jensen shanon
@@ -290,22 +318,10 @@ public class DocTopics2SimilarityGraph {
 					
 					float distance = MetricsUtils.jsd_tuning1(docTopicValues[i], docTopicValues[j], epsylon, epsylon_2_2sqrt);
 					
-					//float distance = MetricsUtils.jsd(vector1, vector2);
-					
-					// 
-					
 					// getNearestTopic					
 					if(distance < epsylon){
 						double distanceNormalized = 0.5d*(epsylon - distance)/epsylon + 0.5d; 
-//						if(distanceNormalizedMax < distanceNormalized){
-//							distanceNormalizedMax = distanceNormalized;
-//						}
-//						if(distanceNormalizedMin > distanceNormalized){
-//							distanceNormalizedMin = distanceNormalized;
-//						}
-						
 						String str = df4.format(distanceNormalized);
-						//String str = df4.format(distance);
 						
 						// Normalizar distancia
 						stdWriter.write(i + "," + j + "," + str + ",\"Undirected\"\n");
@@ -317,9 +333,6 @@ public class DocTopics2SimilarityGraph {
 					}
 				}
 				if(i%1000 == 0 && i > 0){
-//					long time_fin = System.currentTimeMillis();
-//					System.out.println("Time ms: " + (time_fin - time_ini) + " numdocs=" + i);
-					
 					System.out.print(".");
 					stdWriter.flush();
 					if(i%10000 == 0){
@@ -331,105 +344,85 @@ public class DocTopics2SimilarityGraph {
 			long time_fin = System.currentTimeMillis();
 			System.out.println("Time ms: " + (time_fin - time_ini));
 			
-//			System.out.println("distanceNormalizedMin: " + distanceNormalizedMin);
-//			System.out.println("distanceNormalizedMax: " + distanceNormalizedMax);
-
-			
 			long end_time = System.currentTimeMillis();
-			System.out.println("\nTime: " + (end_time - start_time)/1000 + "s" + "\n" + "Ejes activos: " + cnt_activos);
+			System.out.println("\nTime: " + (end_time - start_time)/1000 + "s" + "\n");
 			stdWriter.flush();
 			outputStream.close();
-			
 		} catch (IOException e) {
             System.err.println("Error writing topic distance file: ");
 			e.printStackTrace();
 		} 
 	}
 	
-	private static void saveSimilarityMatrixBin(short[][] docTopicValues) {
-		try {
-	        FileOutputStream outputStream;
-			outputStream = new FileOutputStream(new File(outputDir + File.separator + "edges.csv"));
-	        BufferedWriter stdWriter = new BufferedWriter(new OutputStreamWriter(outputStream,"UTF-8"));
-	
-			long cnt_activos = 0;
-			long start_time = System.currentTimeMillis();
-			
-			//header
-			stdWriter.write("\"Source\",\"Target\",\"Weight\",\"Type\"\n");
-
-			long time_ini = System.currentTimeMillis();
-			
-			for(int i = 0; i < numdocs; i++){
-				for(int j = i+1; j < numdocs; j++){
-//					boolean engDoc = false;
+//	private static void saveSimilarityMatrixBin(short[][] docTopicValues) {
+//		try {
+//	        FileOutputStream outputStream;
+//			outputStream = new FileOutputStream(new File(outputDir + File.separator + "edges.csv"));
+//	        BufferedWriter stdWriter = new BufferedWriter(new OutputStreamWriter(outputStream,"UTF-8"));
+//	
+//			long cnt_activos = 0;
+//			long start_time = System.currentTimeMillis();
+//			
+//			//header
+//			stdWriter.write("\"Source\",\"Target\",\"Weight\",\"Type\"\n");
+//
+//			long time_ini = System.currentTimeMillis();
+//			
+//			for(int i = 0; i < numdocs; i++){
+//				for(int j = i+1; j < numdocs; j++){
+//					float distance = MetricsUtils.jsd_tuning2(docTopicValues[i], docTopicValues[j], epsylon, epsylon_2_2sqrt_short, epsylon_cota2_2);
+//
 //					
-//					for(int ii=0; ii< englishTopics.length;ii++){
-//						if((docTopicValues[i][englishTopics[ii]] > epsylonEng) || (docTopicValues[j][englishTopics[ii]] > epsylonEng)){
-//							engDoc = true;
-//						}
+//					if(distance < epsylon){
+//						double distanceNormalized = 0.5d*(epsylon - distance)/epsylon + 0.5d; 
+//						String str = df4.format(distanceNormalized);
+//						
+//						// Normalizar distancia
+//						stdWriter.write(i + "," + j + "," + str + ",\"Undirected\"\n");
+//						
+//						connectedNode[i] = true;
+//						connectedNode[j] = true;
+//						
+//						cnt_activos++;            			
 //					}
+//				}
+//				if(i%1000 == 0 && i > 0){
+//					long time_fin = System.currentTimeMillis();
+//					System.out.println("Time ms: " + (time_fin - time_ini) + " numdocs=" + i);
 //					
-//					if(engDoc){
-//						continue;
+//					//System.out.print(".");
+//					stdWriter.flush();
+//					if(i%10000 == 0){
+//			    		System.out.println("numdocs=" + i);			    		
 //					}
-
-					float distance = MetricsUtils.jsd_tuning2(docTopicValues[i], docTopicValues[j], epsylon, epsylon_2_2sqrt_short, epsylon_cota2_2);
-
-					
-					if(distance < epsylon){
-						double distanceNormalized = 0.5d*(epsylon - distance)/epsylon + 0.5d; 
-						String str = df4.format(distanceNormalized);
-						
-						// Normalizar distancia
-						stdWriter.write(i + "," + j + "," + str + ",\"Undirected\"\n");
-						
-						connectedNode[i] = true;
-						connectedNode[j] = true;
-						
-						cnt_activos++;            			
-					}
-				}
-				if(i%1000 == 0 && i > 0){
-					long time_fin = System.currentTimeMillis();
-					System.out.println("Time ms: " + (time_fin - time_ini) + " numdocs=" + i);
-					
-					//System.out.print(".");
-					stdWriter.flush();
-					if(i%10000 == 0){
-			    		System.out.println("numdocs=" + i);			    		
-					}
-				}
-			} 
-			
-			long time_fin = System.currentTimeMillis();
-			System.out.println("Time ms: " + (time_fin - time_ini));
-		
-			long end_time = System.currentTimeMillis();
-			System.out.println("\nTime: " + (end_time - start_time)/1000 + "s" + "\n" + "Ejes activos: " + cnt_activos);
-			stdWriter.flush();
-			outputStream.close();
-			
-		} catch (IOException e) {
-            System.err.println("Error writing topic distance file: ");
-			e.printStackTrace();
-		} 
-	}	
+//				}
+//			} 
+//			
+//			long time_fin = System.currentTimeMillis();
+//			System.out.println("Time ms: " + (time_fin - time_ini));
+//		
+//			long end_time = System.currentTimeMillis();
+//			System.out.println("\nTime: " + (end_time - start_time)/1000 + "s" + "\n");
+//			stdWriter.flush();
+//			outputStream.close();
+//			
+//		} catch (IOException e) {
+//            System.err.println("Error writing topic distance file: ");
+//			e.printStackTrace();
+//		} 
+//	}	
      
 	
 	private static void saveSimilarityMatrixBinParallel(short[][] docTopicValues) {
 		try {
 	        FileOutputStream outputStream;
-			outputStream = new FileOutputStream(new File(outputDir + File.separator + "edgesParallel.csv"));
+			outputStream = new FileOutputStream(new File(outputDir + File.separator + "edges.csv"));
 	        BufferedWriter stdWriter = new BufferedWriter(new OutputStreamWriter(outputStream,"UTF-8"));
 	
-			long cnt_activos = 0;
 			long start_time = System.currentTimeMillis();
 			
 			//header
 			stdWriter.write("\"Source\",\"Target\",\"Weight\",\"Type\"\n");
-
-			
 			
 			// parallel
 		    IntStream.range(0, numdocs) 
@@ -437,10 +430,11 @@ public class DocTopics2SimilarityGraph {
              .forEach( id -> {
             	long time_ini = System.currentTimeMillis();
 				try {
+					//TODO param, choose in memory or write to disk after each operation
 					productSequence(id, docTopicValues, epsylon, epsylon_2_2sqrt_short, epsylon_cota2_2, stdWriter);
 					if(id%1000==0){
 						long time_fin = System.currentTimeMillis();
-						System.out.println("numdocs: " + id + ", time ms: " + (time_fin - time_ini));
+						System.out.println("numdocs: " + id + ", time (ms): " + (time_fin - time_ini));
 						time_ini = System.currentTimeMillis();
 					}
 				} catch (IOException e) {
@@ -456,7 +450,7 @@ public class DocTopics2SimilarityGraph {
 			}
 
 			long end_time = System.currentTimeMillis();
-			System.out.println("\nTime: " + (end_time - start_time) + " ms" + "\n" + "Ejes activos: " + cnt_activos);
+			System.out.println("\nTime: " + (end_time - start_time) + " ms" + "\n");
 			stdWriter.flush();
 			outputStream.close();
 			
@@ -472,128 +466,70 @@ public class DocTopics2SimilarityGraph {
 			float distance = MetricsUtils.jsd_tuning2(docTopicValues[i], docTopicValues[j], epsylon, epsylon_2_2sqrt_short, epsylon_cota2_2);
 	
 			if(distance < epsylon){
+				// Normalize distance
 				double distanceNormalized = 0.5d*(epsylon - distance)/epsylon + 0.5d; 
 				String str = df4.format(distanceNormalized);
 				
-				// Normalizar distancia
 				stdWriter.write(i + "," + j + "," + str + ",\"Undirected\"\n");
 				
 				connectedNode[i] = true;
-				connectedNode[j] = true;
-				
-				//cnt_activos++;            			
+				connectedNode[j] = true;         			
 			}
 		}
-		//return cnt_activos;
 	}
 	
-	private static void saveSimilarityMatrixBinParallel_tuning1(short[][] docTopicValues) {
-		try {
-			FileOutputStream outputStream = new FileOutputStream(new File(outputDir + File.separator + "edgesParallel_tuning1.csv"));
-	        BufferedWriter stdWriter = new BufferedWriter(new OutputStreamWriter(outputStream,"UTF-8"));
+
+
+
+//	private static void productSequenceLog(int i, short[][] docTopicValues, float epsylon, float epsylon_2_2sqrt_short, float epsylon_cota2_1, BufferedWriter stdWriter, float[][] logDocTopicValues) throws IOException{
+//		for(int j = i+1; j < numdocs; j++){
+//			float distance = MetricsUtils.jsd_tuning6(docTopicValues[i], docTopicValues[j], logDocTopicValues[i], logDocTopicValues[j], epsylon, epsylon_2_2sqrt_short, epsylon_cota2_2);
+//			
+//			if(distance < epsylon20000f){///20000f
+//				double distanceNormalized = 0.5d*(epsylon - distance/20000f)/epsylon + 0.5d; 
+//				String str = df4.format(distanceNormalized);
+//				
+//				// Normalizar distancia
+//				stdWriter.write(i + "," + j + "," + str + ",\"Undirected\"\n");
+//				
+//				connectedNode[i] = true;
+//				connectedNode[j] = true;        			
+//			}
+//		}
+//	}	
 	
-			long cnt_activos = 0;
-			long start_time = System.currentTimeMillis();
-			
-			//header
-			stdWriter.write("\"Source\",\"Target\",\"Weight\",\"Type\"\n");
+//    private static float[][] calculateLogMatrix(short[][] docTopicValues) {
+//		float[][] logDocTopicValues = new float[numdocs][numtopics];
+//
+//		// parallel
+//	    IntStream.range(0, numdocs) 
+//         .parallel() 
+//         .forEach( id -> {
+//        	 logDocTopicValues[id] = calculateLog(docTopicValues[id]);
+//		}); 
+//		return logDocTopicValues;
+//	}
 
-			long time_ini = System.currentTimeMillis();
-			
-			// calculate log matrix
-			float[][] logDocTopicValues = calculateLogMatrix(docTopicValues);
-			
-			// parallel
-		    IntStream.range(0, numdocs) 
-             .parallel() 
-             .forEach( id -> {
-				try {
-					productSequenceLog(id, docTopicValues, epsylon, epsylon_2_2sqrt_short, epsylon_cota2_2, stdWriter, logDocTopicValues);
-					if(id%1000==0){
-						long time_fin = System.currentTimeMillis();
-						System.out.println("numdocs: " + id + ", time ms: " + (time_fin - time_ini));
-						stdWriter.flush();
-					}
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}); 
-		    
-			long end_time = System.currentTimeMillis();
-			System.out.println("\nTime: " + (end_time - start_time) + " ms" + "\n" + "Ejes activos: " + cnt_activos);
-			stdWriter.flush();
-			outputStream.close();
-			
-		} catch (IOException e) {
-            System.err.println("Error writing topic distance file: ");
-			e.printStackTrace();
-		} 
-	}	
-
-
-	private static void productSequenceLog(int i, short[][] docTopicValues, float epsylon, float epsylon_2_2sqrt_short, float epsylon_cota2_1, BufferedWriter stdWriter, float[][] logDocTopicValues) throws IOException{
-		//int cnt_activos = 0;
-//		int cnt_distancias = 0;
-//		int cnt_distancias_epsylon = 0;
-		
-		for(int j = i+1; j < numdocs; j++){
-			//float distance = MetricsUtils.jsd_tuning4(docTopicValues[i], docTopicValues[j], logDocTopicValues[i], logDocTopicValues[j], epsylon, epsylon_2_2sqrt_short);
-			//float distance = MetricsUtils.jsd_tuning5(docTopicValues[i], docTopicValues[j], logDocTopicValues[i], logDocTopicValues[j], epsylon, epsylon_2_2sqrt_short, epsylon_cota2_2);
-			float distance = MetricsUtils.jsd_tuning6(docTopicValues[i], docTopicValues[j], logDocTopicValues[i], logDocTopicValues[j], epsylon, epsylon_2_2sqrt_short, epsylon_cota2_2);
-//			cnt_distancias++;
-			
-			if(distance < epsylon20000f){///20000f
-//				cnt_distancias_epsylon++;
-				double distanceNormalized = 0.5d*(epsylon - distance/20000f)/epsylon + 0.5d; 
-				String str = df4.format(distanceNormalized);
-				
-				// Normalizar distancia
-				stdWriter.write(i + "," + j + "," + str + ",\"Undirected\"\n");
-				
-				connectedNode[i] = true;
-				connectedNode[j] = true;
-				
-				//cnt_activos++;            			
-			}
-		}
-
-
-//		System.out.println("cnt_distancias: " + cnt_distancias + ", cnt_distancias_epsylon: " + cnt_distancias_epsylon);
-		//return cnt_activos;
-	}	
-	
-    private static float[][] calculateLogMatrix(short[][] docTopicValues) {
-		float[][] logDocTopicValues = new float[numdocs][numtopics];
-
-		// parallel
-	    IntStream.range(0, numdocs) 
-         .parallel() 
-         .forEach( id -> {
-        	 logDocTopicValues[id] = calculateLog(docTopicValues[id]);
-		}); 
-		return logDocTopicValues;
-	}
-
-	private static float[] calculateLog(short[] topicValues) {
-		float[] logTopicVector = new float[numtopics];
-		for(int i=0; i<numtopics; i++){
-			logTopicVector[i] = (float) Math.log(topicValues[i]);
-		}
-		return logTopicVector;
-	}
+//	private static float[] calculateLog(short[] topicValues) {
+//		float[] logTopicVector = new float[numtopics];
+//		for(int i=0; i<numtopics; i++){
+//			logTopicVector[i] = (float) Math.log(topicValues[i]);
+//		}
+//		return logTopicVector;
+//	}
 
 
 
-	private static double[] cleanEnglishTopics(double[] ds) {
-		for(int i=0; i< ds.length; i++){
-			for(int j=0; j < englishTopics.length; j++){
-				if(englishTopics[j] == i){
-					ds[i] = 0;
-				}
-			}
-		}
-		return ds;
-	}
+//	private static double[] cleanEnglishTopics(double[] ds) {
+//		for(int i=0; i< ds.length; i++){
+//			for(int j=0; j < englishTopics.length; j++){
+//				if(englishTopics[j] == i){
+//					ds[i] = 0;
+//				}
+//			}
+//		}
+//		return ds;
+//	}
     
 	private static int loadBinTopics(String fileName, int numdocs, short[][] docTopicValues) throws UnsupportedEncodingException, IOException {
         FileInputStream inputStream = new FileInputStream(new File(inputDir + File.separator + fileName));
@@ -682,7 +618,6 @@ public class DocTopics2SimilarityGraph {
     private static int inspectBinTopicFile(String fileName) throws IOException {
     	File file = new File(inputDir + File.separator + fileName);
     	InputStream inputStream = new FileInputStream(file);
-    	//DataInputStream data_in = new DataInputStream(inputStream); 
 
     	int lines = 0;    	
     	short maxtopic = 0;
@@ -761,11 +696,7 @@ public class DocTopics2SimilarityGraph {
 			byte hiTopicValue = lineBytes[i*4 + 3 + offset];
 			short valueTopic = (short)( ((hiTopicValue & 0xFF)<<8) | (loTopicValue & 0xFF) );	
 			
-			//docTopicValues[numdoc][numTopic] = (double)((double)(valueTopic)/10000.0d);
 			docTopicValues[numdoc][numTopic] = valueTopic;
-			
-			
-			//System.out.println("numdoc: " + numdoc + "\tnumTopic: " + numTopic);
 		}
 		short name_offset = (short) (num_non_zero_topics*4 + offset);
 		byte [] nameBytes = Arrays.copyOfRange(lineBytes, name_offset, dataLength);
